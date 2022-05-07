@@ -1,71 +1,86 @@
-import cv2
-import numpy as np
-import mediapipe as mp
+#Rainier Jericho Lugtu
+#Aldrin Macatangay
+#CS - 302
+
+import cv2 # for computer vision
+import numpy as npy
+import mediapipe as mpipe # for recognizing hand keypoints
+import tensorflow as tf # use its pretrained model
 from tensorflow.keras.models import load_model
 
-# initialize mediapipe
-mpHands = mp.solutions.hands
-hands = mpHands.Hands(max_num_hands=1, min_detection_confidence=0.7)
-mpDraw = mp.solutions.drawing_utils
 
-# Load the gesture recognizer model
-model = load_model('mp_hand_gesture')
+# initializing mediapipe
+mpipeHands = mpipe.solutions.hands # this performs the hand recognition
+hands = mpipeHands.Hands(max_num_hands=1, min_detection_confidence=0.7) # only one hand for each frame
+mpipeDraw = mpipe.solutions.drawing_utils # to automatically draw key points of the hand
 
-# Load class names
-f = open('gesture.names', 'r')
-classNames = f.read().split('\n')
+
+# to load the pretrained model from tensorflow
+model = load_model('mp_hand_gesture') # for pre-trained model
+# Loading the classnames
+# gestures are ['okay', 'peace', 'thumbs up', 'thumbs down', 'call me', 'stop', 'rock', 'live long', 'fist', 'smile']
+f = open('gesture.names', 'r') # first parameter is a file that has the 10 gesture classes' name
+classNames = f.read().split('\n') # open the file
 f.close()
 print(classNames)
 
-# Initialize the webcam
-cap = cv2.VideoCapture(2)
+
+
+# Initializing web camera
+capture = cv2.VideoCapture(0) # 0 is the ID of the webcam
+
+
 
 while True:
     # Read each frame from the webcam
-    _, frame = cap.read()
-
+    _, frame = capture.read() # reads web camera's frame
     x, y, c = frame.shape
 
     # Flip the frame vertically
-    frame = cv2.flip(frame, 1)
-    framergb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame = cv2.flip(frame, 1) # this mirrors the frame
+    frameToRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # convert the frames from BGR to RGB format
 
     # Get hand landmark prediction
-    result = hands.process(framergb)
+    result = hands.process(frameToRGB) # returned class
 
     # print(result)
-
+  
     className = ''
 
-    # post process the result
+    # post process of output
     if result.multi_hand_landmarks:
         landmarks = []
-        for handslms in result.multi_hand_landmarks:
-            for lm in handslms.landmark:
+        for handslms in result.multi_hand_landmarks: # verify if there is a hand in the frame
+            for lm in handslms.landmark: # loop thru the detections and keep the coords on landmarks
                 # print(id, lm)
-                lmx = int(lm.x * x)
+                lmx = int(lm.x * x) 
                 lmy = int(lm.y * y)
+                # product of height (y) and width (x) will be multiplied with the product. Value in the result will be 0 or 1
+                landmarks.append([lmx, lmy]) 
+            mpipeDraw.draw_landmarks(frame, handslms, mpipeHands.HAND_CONNECTIONS,
+            mpipeDraw.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2),
+            mpipeDraw.DrawingSpec(color=(216,31,42), thickness=2, circle_radius=2)) # to draw landmarks on the frame
 
-                landmarks.append([lmx, lmy])
-
-            # Drawing landmarks on frames
-            mpDraw.draw_landmarks(frame, handslms, mpHands.HAND_CONNECTIONS)
-
-            # Predict gesture
-            prediction = model.predict([landmarks])
+            # Gesture prediction
+            prediction = model.predict([landmarks]) # Grabs a list of landmarks then it returns an array that has 10 classes for prediction /landmark
             # print(prediction)
-            classID = np.argmax(prediction)
-            className = classNames[classID]
-            print(className)
-    # show the prediction on the frame
-    cv2.putText(frame, className, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+            classID = npy.argmax(prediction) # this return the max val fromt the list
+            className = classNames[classID] # take classname after taking the index
 
-    # Show the final output
-    cv2.imshow("Output", frame)
 
-    if cv2.waitKey(1) == ord('q'):
+    # Display prediction
+    cv2.putText(frame, className, (25, 450),
+               cv2.FONT_HERSHEY_COMPLEX, 1, (0,176,24), 2, cv2.LINE_AA) # display detected gesture
+
+
+    # Display 
+    cv2.imshow("Lugtu_Macatangay", frame) 
+
+
+    if cv2.waitKey(1) == ord('q') or cv2.waitKey(1) == ord('Q'):
         break
 
-# release the webcam and destroy all active windows
-cap.release()
+
+# Quit
+capture.release()
 cv2.destroyAllWindows()
